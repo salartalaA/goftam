@@ -21,7 +21,6 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 import type { DashboardSection, FaqPage, FaqTemplate } from "@/types/faq";
 
 interface DashboardClientProps {
-  existingPages: Array<{ id: string; slug: string; title: string }>;
   page: FaqPage | null;
   userEmail: string;
   userName: string;
@@ -31,7 +30,6 @@ export function DashboardClient({
   userEmail,
   userName,
   page,
-  existingPages,
 }: DashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -130,7 +128,6 @@ export function DashboardClient({
     <DashboardLayout
       activeSection={activeSection}
       copiedUrl={copiedUrl}
-      existingPages={existingPages}
       isAddQuestionOpen={isAddQuestionOpen}
       isCreatePageOpen={isCreatePageOpen}
       isEditPageOpen={isEditPageOpen}

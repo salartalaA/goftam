@@ -24,7 +24,6 @@ export interface DashboardUser {
 interface DashboardLayoutProps {
   activeSection: DashboardSection;
   copiedUrl: boolean;
-  existingPages: Array<{ id: string; slug: string; title: string }>;
   isAddQuestionOpen: boolean;
   isCreatePageOpen: boolean;
   isEditPageOpen: boolean;
@@ -73,7 +72,6 @@ const SECTION_LABELS: Record<DashboardSection, string> = {
 export function DashboardLayout({
   user,
   page,
-  existingPages,
   activeSection,
   copiedUrl,
   isCreatePageOpen,
@@ -222,7 +220,6 @@ export function DashboardLayout({
 
       {/* Create Single FAQ Page Dialog */}
       <FaqPageFormDialog
-        existingPages={existingPages}
         onOpenChange={onCreatePageOpenChange}
         onSubmit={onCreatePage}
         open={isCreatePageOpen}
@@ -231,7 +228,6 @@ export function DashboardLayout({
       {/* Edit Existing FAQ Page Title & Slug Dialog */}
       <FaqPageFormDialog
         editingPage={page}
-        existingPages={existingPages}
         onOpenChange={onEditPageOpenChange}
         onSubmit={onUpdatePageDetails}
         open={isEditPageOpen}

@@ -19,7 +19,8 @@
     "lint": "ultracite check",
     "prepare": "lefthook install",
     "start": "next start",
-    "test": "tsx --test lib/faq.test.ts",
+    "test": "tsx --test lib/faq.test.ts lib/validations.test.ts",
+    "test:integration": "pnpm build && tsx --test tests/integration.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

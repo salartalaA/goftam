@@ -1,4 +1,4 @@
-import type { FaqPage, FaqQuestion } from "@/types/faq";
+import type { FaqQuestion } from "@/types/faq";
 
 export const RESERVED_SLUGS = new Set([
   "login",
@@ -26,11 +26,7 @@ export function normalizeSlug(raw: string): string {
     .replace(/^-+|-+$/gu, "");
 }
 
-export function validateSlug(
-  slug: string,
-  existingPages: Pick<FaqPage, "id" | "slug">[],
-  ignorePageId?: string
-): string | null {
+export function validateSlug(slug: string): string | null {
   const normalized = normalizeSlug(slug);
   if (!normalized) {
     return "شناسه نشانی عمومی الزامی است.";
@@ -43,12 +39,6 @@ export function validateSlug(
   }
   if (RESERVED_SLUGS.has(normalized)) {
     return `شناسه «${normalized}» رزرو شده است. نام دیگری انتخاب کنید.`;
-  }
-  const taken = existingPages.some(
-    (page) => page.slug.toLowerCase() === normalized && page.id !== ignorePageId
-  );
-  if (taken) {
-    return "این نشانی عمومی قبلاً ثبت شده است.";
   }
   return null;
 }

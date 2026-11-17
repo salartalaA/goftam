@@ -169,7 +169,7 @@ export function AuthScreen() {
                   id="auth-password"
                   placeholder={
                     mode === "register"
-                      ? "حداقل ۶ کاراکتر"
+                      ? "حداقل ۱۲ کاراکتر"
                       : "رمز عبور خود را وارد کنید"
                   }
                   type="password"

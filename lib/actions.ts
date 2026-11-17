@@ -11,6 +11,7 @@ import {
   categorySchema,
   faqPageSchema,
   faqTemplateSchema,
+  idSchema,
   questionSchema,
 } from "@/lib/validations";
 import type { FaqTemplate } from "@/types/faq";
@@ -21,6 +22,7 @@ export type ActionResult<T = undefined> =
 
 const UNAUTHORIZED_ERROR = "ابتدا وارد حساب کاربری شوید.";
 const GENERIC_ERROR = "خطایی رخ داد. لطفاً دوباره تلاش کنید.";
+const UNIQUE_CONSTRAINT_PATTERN = /unique constraint "(?<name>[^"]+)"/u;
 
 async function requireUser() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -28,13 +30,48 @@ async function requireUser() {
 }
 
 function getUserPage(userId: string) {
-  return prisma.faqPage.findFirst({ where: { userId } });
+  return prisma.faqPage.findUnique({ where: { userId } });
 }
 
-function getAllPageRefs() {
-  return prisma.faqPage.findMany({
-    select: { id: true, slug: true },
+// Slug uniqueness is enforced against the database directly; the client
+// never receives a list of other users' slugs.
+function isSlugTaken(slug: string, excludePageId?: string) {
+  return prisma.faqPage.findFirst({
+    where: {
+      slug: { equals: slug, mode: "insensitive" },
+      ...(excludePageId ? { id: { not: excludePageId } } : {}),
+    },
+    select: { id: true },
   });
+}
+
+function getUniqueViolationDetails(
+  error: unknown
+): { code: string; target: string } | null {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    (error.code !== "P2002" && error.code !== "23505")
+  ) {
+    return null;
+  }
+  const metaTarget = error.meta?.target;
+  if (Array.isArray(metaTarget)) {
+    return { code: error.code, target: metaTarget.join(",") };
+  }
+  if (typeof metaTarget === "string") {
+    return { code: error.code, target: metaTarget };
+  }
+  // The Neon HTTP adapter surfaces the raw Postgres code (23505) and omits
+  // meta.target; the constraint name only appears in the error message.
+  const constraintMatch = UNIQUE_CONSTRAINT_PATTERN.exec(error.message);
+  return {
+    code: error.code,
+    target: constraintMatch?.groups?.name ?? "",
+  };
+}
+
+function uniqueViolationTarget(error: unknown): string {
+  return getUniqueViolationDetails(error)?.target ?? "";
 }
 
 function revalidateDashboard(slug?: string) {
@@ -45,10 +82,15 @@ function revalidateDashboard(slug?: string) {
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002"
-  );
+  return getUniqueViolationDetails(error) !== null;
+}
+
+function slugTakenError(): ActionResult {
+  return { ok: false, error: "این نشانی عمومی قبلاً ثبت شده است." };
+}
+
+function invalidIdError(): ActionResult {
+  return { ok: false, error: "شناسه ارسالی معتبر نیست." };
 }
 
 export async function createFaqPageAction(input: {
@@ -69,7 +111,7 @@ export async function createFaqPageAction(input: {
       };
     }
 
-    const parsed = faqPageSchema(await getAllPageRefs()).safeParse(input);
+    const parsed = faqPageSchema().safeParse(input);
     if (!parsed.success) {
       return {
         ok: false,
@@ -78,21 +120,36 @@ export async function createFaqPageAction(input: {
     }
 
     const slug = normalizeSlug(parsed.data.slug);
-    await prisma.faqPage.create({
-      data: {
-        userId: user.id,
-        title: parsed.data.title,
-        slug,
-        template: "accordion",
-      },
-    });
+    if (await isSlugTaken(slug)) {
+      return slugTakenError();
+    }
+
+    try {
+      await prisma.faqPage.create({
+        data: {
+          userId: user.id,
+          title: parsed.data.title,
+          slug,
+          template: "accordion",
+        },
+      });
+    } catch (error) {
+      const target = uniqueViolationTarget(error);
+      if (target.includes("userId")) {
+        return {
+          ok: false,
+          error: "هر کاربر فقط می‌تواند یک صفحه پرسش‌های متداول بسازد.",
+        };
+      }
+      if (isUniqueViolation(error)) {
+        return slugTakenError();
+      }
+      throw error;
+    }
 
     revalidateDashboard(slug);
     return { ok: true };
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      return { ok: false, error: "این نشانی عمومی قبلاً ثبت شده است." };
-    }
+  } catch {
     return { ok: false, error: GENERIC_ERROR };
   }
 }
@@ -112,8 +169,7 @@ export async function updateFaqPageAction(input: {
       return { ok: false, error: "صفحه‌ای برای ویرایش یافت نشد." };
     }
 
-    const refs = await getAllPageRefs();
-    const parsed = faqPageSchema(refs, page.id).safeParse(input);
+    const parsed = faqPageSchema().safeParse(input);
     if (!parsed.success) {
       return {
         ok: false,
@@ -123,20 +179,28 @@ export async function updateFaqPageAction(input: {
 
     const oldSlug = page.slug;
     const newSlug = normalizeSlug(parsed.data.slug);
-    await prisma.faqPage.update({
-      where: { id: page.id },
-      data: { title: parsed.data.title, slug: newSlug },
-    });
+    if (newSlug !== oldSlug && (await isSlugTaken(newSlug, page.id))) {
+      return slugTakenError();
+    }
+
+    try {
+      await prisma.faqPage.update({
+        where: { id: page.id },
+        data: { title: parsed.data.title, slug: newSlug },
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return slugTakenError();
+      }
+      throw error;
+    }
 
     revalidateDashboard(oldSlug);
     if (newSlug !== oldSlug) {
       revalidatePath(`/${newSlug}`);
     }
     return { ok: true };
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      return { ok: false, error: "این نشانی عمومی قبلاً ثبت شده است." };
-    }
+  } catch {
     return { ok: false, error: GENERIC_ERROR };
   }
 }
@@ -231,6 +295,9 @@ export async function updateQuestionAction(
     if (!user) {
       return { ok: false, error: UNAUTHORIZED_ERROR };
     }
+    if (!idSchema.safeParse(questionId).success) {
+      return invalidIdError();
+    }
 
     const page = await getUserPage(user.id);
     if (!page) {
@@ -282,6 +349,9 @@ export async function deleteQuestionAction(
     const user = await requireUser();
     if (!user) {
       return { ok: false, error: UNAUTHORIZED_ERROR };
+    }
+    if (!idSchema.safeParse(questionId).success) {
+      return invalidIdError();
     }
 
     const page = await getUserPage(user.id);
@@ -337,9 +407,19 @@ export async function createCategoryAction(
       return { ok: false, error: "دسته‌بندی با این نام از قبل وجود دارد." };
     }
 
-    await prisma.faqCategory.create({
-      data: { pageId: page.id, name: trimmed },
-    });
+    try {
+      await prisma.faqCategory.create({
+        data: { pageId: page.id, name: trimmed },
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return {
+          ok: false,
+          error: "دسته‌بندی با این نام از قبل وجود دارد.",
+        };
+      }
+      throw error;
+    }
 
     revalidateDashboard(page.slug);
     return { ok: true };
@@ -356,6 +436,9 @@ export async function renameCategoryAction(
     const user = await requireUser();
     if (!user) {
       return { ok: false, error: UNAUTHORIZED_ERROR };
+    }
+    if (!idSchema.safeParse(categoryId).success) {
+      return invalidIdError();
     }
 
     const page = await getUserPage(user.id);
@@ -392,10 +475,20 @@ export async function renameCategoryAction(
       return { ok: false, error: "دسته‌بندی دیگری از این نام استفاده می‌کند." };
     }
 
-    await prisma.faqCategory.update({
-      where: { id: categoryId },
-      data: { name: trimmed },
-    });
+    try {
+      await prisma.faqCategory.update({
+        where: { id: categoryId },
+        data: { name: trimmed },
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return {
+          ok: false,
+          error: "دسته‌بندی دیگری از این نام استفاده می‌کند.",
+        };
+      }
+      throw error;
+    }
 
     revalidateDashboard(page.slug);
     return { ok: true };
@@ -411,6 +504,9 @@ export async function deleteCategoryAction(
     const user = await requireUser();
     if (!user) {
       return { ok: false, error: UNAUTHORIZED_ERROR };
+    }
+    if (!idSchema.safeParse(categoryId).success) {
+      return invalidIdError();
     }
 
     const page = await getUserPage(user.id);

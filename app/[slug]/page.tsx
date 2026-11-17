@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { PublicFaqPage } from "@/components/public/public-faq-page";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { faqPageInclude, serializePage } from "@/lib/serialize";
+import { faqPageInclude, serializePublicPage } from "@/lib/serialize";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +43,7 @@ export default async function PublicSlugPage({ params }: PageProps) {
     <PublicFaqPage
       isLoggedIn={Boolean(session)}
       isOwner={Boolean(session && page && page.userId === session.user.id)}
-      page={page ? serializePage(page) : null}
+      page={page ? serializePublicPage(page) : null}
       slug={slug}
     />
   );

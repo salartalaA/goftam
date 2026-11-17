@@ -40,12 +40,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { filterQuestions } from "@/lib/faq";
-import type { FaqPage, FaqQuestion } from "@/types/faq";
+import type { FaqQuestion, PublicFaqPageData } from "@/types/faq";
 
 interface PublicFaqPageProps {
   isLoggedIn: boolean;
   isOwner: boolean;
-  page: FaqPage | null;
+  page: PublicFaqPageData | null;
   slug: string;
 }
 
@@ -337,7 +337,7 @@ function PublicPageNotFound({
 }
 
 interface CategoryFilterBarProps {
-  categories: FaqPage["categories"];
+  categories: PublicFaqPageData["categories"];
   hasUncategorized: boolean;
   onSelect: (category: string) => void;
   selectedCategory: string;
@@ -403,7 +403,7 @@ interface QuestionsContentProps {
   filteredQuestions: FaqQuestion[];
   onOpenDialog: (question: FaqQuestion) => void;
   onResetFilters: () => void;
-  page: FaqPage;
+  page: PublicFaqPageData;
 }
 
 function QuestionsContent({

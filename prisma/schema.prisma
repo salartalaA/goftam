@@ -65,11 +65,19 @@ model Verification {
   @@index([identifier])
 }
 
+// Used by better-auth for distributed (database-backed) rate limiting.
+model RateLimit {
+  id          String @id @default(cuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
 // ── FAQ pages ───────────────────────────────────────────────────────
 
 model FaqPage {
   id         String         @id @default(cuid())
-  userId     String
+  userId     String         @unique
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   title      String
   slug       String         @unique
@@ -78,8 +86,6 @@ model FaqPage {
   questions  FaqQuestion[]
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
-
-  @@index([userId])
 }
 
 model FaqCategory {
@@ -90,6 +96,7 @@ model FaqCategory {
   questions  FaqQuestion[]
   createdAt  DateTime      @default(now())
 
+  @@unique([pageId, name])
   @@index([pageId])
 }
 

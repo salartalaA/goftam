@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import type { FaqPage, FaqTemplate } from "@/types/faq";
+import type { FaqPage, FaqTemplate, PublicFaqPageData } from "@/types/faq";
 
 const pageWithRelations = {
   categories: { orderBy: { createdAt: "asc" } },
@@ -35,4 +35,12 @@ export function serializePage(page: FaqPageWithRelations): FaqPage {
     createdAt: page.createdAt.toISOString(),
     updatedAt: page.updatedAt.toISOString(),
   };
+}
+
+// Public visitors must not receive the owner's user id.
+export function serializePublicPage(
+  page: FaqPageWithRelations
+): PublicFaqPageData {
+  const { userId: _userId, ...publicPage } = serializePage(page);
+  return publicPage;
 }

@@ -21,7 +21,6 @@ import type { FaqPage } from "@/types/faq";
 
 interface FaqPageFormDialogProps {
   editingPage?: FaqPage | null;
-  existingPages: Pick<FaqPage, "id" | "slug" | "title">[];
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: { title: string; slug: string }) => Promise<boolean>;
   open: boolean;
@@ -30,11 +29,10 @@ interface FaqPageFormDialogProps {
 export function FaqPageFormDialog({
   open,
   onOpenChange,
-  existingPages,
   editingPage,
   onSubmit,
 }: FaqPageFormDialogProps) {
-  const schema = faqPageSchema(existingPages, editingPage?.id);
+  const schema = faqPageSchema();
   const slugTouchedRef = useRef(false);
 
   const {

@@ -13,20 +13,13 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  const [page, slugRefs] = await Promise.all([
-    prisma.faqPage.findFirst({
-      where: { userId: session.user.id },
-      include: faqPageInclude,
-    }),
-    prisma.faqPage.findMany({
-      select: { id: true, slug: true, title: true },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  const page = await prisma.faqPage.findUnique({
+    where: { userId: session.user.id },
+    include: faqPageInclude,
+  });
 
   return (
     <DashboardClient
-      existingPages={slugRefs}
       page={page ? serializePage(page) : null}
       userEmail={session.user.email}
       userName={session.user.name}

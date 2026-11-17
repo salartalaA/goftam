@@ -27,6 +27,9 @@ export interface FaqPage {
   userId: string;
 }
 
+// Page payload sent to the public /[slug] route — excludes the owner id.
+export type PublicFaqPageData = Omit<FaqPage, "userId">;
+
 export type DashboardSection =
   | "overview"
   | "questions"
