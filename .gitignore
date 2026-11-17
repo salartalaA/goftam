@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# next.js
+.next/
+out/
+build/
+dist/
+next-env.d.ts
+
+# environment
+.env
+.env.*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# generated prisma client
+src/generated/prisma/
+
+# tooling
+.aistudio/
+coverage/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── better-auth tables ──────────────────────────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  faqPages      FaqPage[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+// ── FAQ pages ───────────────────────────────────────────────────────
+
+model FaqPage {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  slug       String         @unique
+  template   String         @default("accordion")
+  categories FaqCategory[]
+  questions  FaqQuestion[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([userId])
+}
+
+model FaqCategory {
+  id         String        @id @default(cuid())
+  pageId     String
+  page       FaqPage       @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  name       String
+  questions  FaqQuestion[]
+  createdAt  DateTime      @default(now())
+
+  @@index([pageId])
+}
+
+model FaqQuestion {
+  id         String       @id @default(cuid())
+  pageId     String
+  page       FaqPage      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   FaqCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  question   String
+  answer     String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([pageId])
+  @@index([categoryId])
+}
